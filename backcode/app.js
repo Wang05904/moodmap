@@ -1,41 +1,68 @@
-var createError = require('http-errors');
-var express = require('express');
-var path = require('path');
-var cookieParser = require('cookie-parser');
-var logger = require('morgan');
+const express = require('express');
+const cors = require('cors');
+const morgan = require('morgan');
+const path = require('path');
+const cookieParser = require('cookie-parser');
+const mysql = require('mysql2');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
-var indexRouter = require('./routes/index');
-var usersRouter = require('./routes/users');
+const app = express();
 
-var app = express();
-
-// view engine setup
-app.set('views', path.join(__dirname, 'views'));
-app.set('view engine', 'jade');
-
-app.use(logger('dev'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-app.use(cookieParser());
-app.use(express.static(path.join(__dirname, 'public')));
-
-app.use('/', indexRouter);
-app.use('/users', usersRouter);
-
-// catch 404 and forward to error handler
-app.use(function(req, res, next) {
-  next(createError(404));
+// 测试数据库连接
+const db = mysql.createConnection({
+  host: 'localhost',
+  user: 'root',//替换为你的数据库用户名
+  password: '123456',//替换为你的密码
+  database: 'moodmap'//替换为你的数据库名
 });
 
-// error handler
-app.use(function(err, req, res, next) {
-  // set locals, only providing error in development
-  res.locals.message = err.message;
-  res.locals.error = req.app.get('env') === 'development' ? err : {};
+// 连接数据库
+db.connect((err) => {
+  if (err) {
+      console.error('数据库连接失败:', err);
+      return;
+  }
+  console.log('数据库连接成功');
+});
 
-  // render the error page
-  res.status(err.status || 500);
-  res.render('error');
+// 基础中间件
+app.use(cors());                          // 启用 CORS
+app.use(morgan('dev'));                   // 日志中间件
+app.use(express.json());                  // 解析 JSON 请求体
+app.use(express.urlencoded({ extended: false })); // 解析 URL 编码的请求体
+app.use(cookieParser());                  // 解析 Cookie
+
+// 静态文件服务
+app.use(express.static(path.join(__dirname, 'public')));
+
+// 路由
+app.get('/', (req, res) => {
+  res.json({ message: 'API 服务器运行正常' });
+});
+
+// API 路由
+const userRouter = require('./routes/users');
+app.use('/api/users', userRouter);
+
+// 404 错误处理
+app.use((req, res) => {
+  res.status(404).json({ message: '未找到请求的资源' });
+});
+
+// 错误处理中间件
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ 
+    message: '服务器内部错误',
+    error: process.env.NODE_ENV === 'development' ? err.message : {}
+  });
+});
+
+// 设置端口
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`服务器运行在 http://localhost:${PORT}`);
 });
 
 module.exports = app;

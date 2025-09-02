@@ -85,6 +85,7 @@
 <script setup>
 import { ref, reactive } from 'vue';
 import { useRouter } from 'vue-router';
+import { login } from '@/api/login'
 const router = useRouter();
 // 表单数据
 const form = reactive({
@@ -98,52 +99,18 @@ const loginError = ref('');
 const loginSuccess = ref(false);
 const showPassword = ref(false);
 
-// 处理登录
 const handleLogin = async () => {
-  // 重置状态
-  loginError.value = '';
-  
-  // 验证输入
-  if (!form.username || !form.password) {
-    loginError.value = '请输入账号和密码';
-    return;
-  }
-  
-  // 显示加载状态
-  isLoading.value = true;
-  
   try {
-    // 模拟API请求延迟
-    await new Promise(resolve => setTimeout(resolve, 1200));
-    
-    // 预设的默认账号密码
-    const defaultUser = {
-      username: 'user',
-      password: '111'
-    };
-    
-    // 验证账号密码
-    if (form.username === defaultUser.username && form.password === defaultUser.password) {
-      // 登录成功
-      loginSuccess.value = true;
-      loginError.value = '';
-      localStorage.setItem('isLogin', 'true');
-      // 模拟跳转延迟
-      setTimeout(() => {
-        router.push('/home');
-      }, 1000);
-    } else {
-      // 登录失败
-      loginError.value = '账号或密码不正确，请重试';
-    }
+    const result = await login(form.username, form.password)
+    // 登录成功
+    loginSuccess.value = true
+    // 跳转到首页
+    router.push('/home')
   } catch (error) {
-    loginError.value = '登录失败，请稍后再试';
-    console.error('登录错误:', error);
-  } finally {
-    // 隐藏加载状态
-    isLoading.value = false;
+    // 登录失败
+    loginError.value = error.message
   }
-};
+}
 </script>
 
 <style scoped>
