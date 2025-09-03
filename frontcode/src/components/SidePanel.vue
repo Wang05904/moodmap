@@ -15,7 +15,7 @@ const togglePanel = () => {
       <button class="collapse-btn" @click="togglePanel">
         <span>←</span>
       </button>
-      
+      <button class="logout-btn" @click="logout">登出</button>
       <!-- 用户信息区域 -->
       <div class="user-info">
         <div class="avatar">
@@ -141,5 +141,18 @@ const togglePanel = () => {
 
 .mood-delete:hover {
   opacity: 1;
+}
+
+.logout-btn{
+  margin: 20px;
+  position: fixed;
+  top: 0;
+  left: 180px;
+  background: red;
+  color: white;
+  border-radius: 10px;
+  width: 80px;
+  height: 30px;
+  border: none;
 }
 </style>

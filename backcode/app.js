@@ -1,29 +1,35 @@
+// app.js
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
 const path = require('path');
 const cookieParser = require('cookie-parser');
-const mysql = require('mysql2');
+const mysql = require('mysql2/promise'); // 使用mysql2/promise以支持async/await
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+require('dotenv').config();
 
 const app = express();
 
-// 测试数据库连接
-const db = mysql.createConnection({
+// 初始化数据库连接池
+const db = mysql.createPool({
   host: 'localhost',
-  user: 'root',//替换为你的数据库用户名
-  password: '123456',//替换为你的密码
-  database: 'moodmap'//替换为你的数据库名
+  user: 'root', // 替换为你的数据库用户名
+  password: '123456', // 替换为你的密码
+  database: 'moodmap', // 替换为你的数据库名
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
 });
 
 // 连接数据库
-db.connect((err) => {
+db.getConnection((err, connection) => {
   if (err) {
-      console.error('数据库连接失败:', err);
-      return;
+    console.error('数据库连接失败:', err);
+    return;
   }
   console.log('数据库连接成功');
+  connection.release(); // 释放连接
 });
 
 // 基础中间件
@@ -42,7 +48,7 @@ app.get('/', (req, res) => {
 });
 
 // API 路由
-const userRouter = require('./routes/users');
+const userRouter = require('./routes/users')(db);
 app.use('/api/users', userRouter);
 
 // 404 错误处理
@@ -51,13 +57,13 @@ app.use((req, res) => {
 });
 
 // 错误处理中间件
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ 
-    message: '服务器内部错误',
-    error: process.env.NODE_ENV === 'development' ? err.message : {}
-  });
-});
+// app.use((err, req, res, next) => {
+//   console.error(err.stack);
+//   res.status(500).json({ 
+//     message: '服务器内部错误',
+//     error: process.env.NODE_ENV === 'development' ? err.message : {}
+//   });
+// });
 
 // 设置端口
 const PORT = process.env.PORT || 3000;
