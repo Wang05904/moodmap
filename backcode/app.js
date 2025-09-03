@@ -1,5 +1,4 @@
-// app.js
-const express = require('express');
+require('dotenv').config();const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
 const path = require('path');
@@ -50,6 +49,11 @@ app.get('/', (req, res) => {
 // API 路由
 const userRouter = require('./routes/users')(db);
 app.use('/api/users', userRouter);
+
+// mood路由
+const createMoodRouter = require('./routes/mood');
+const moodRouter = createMoodRouter(db);
+app.use('/api/mood', moodRouter);
 
 // 404 错误处理
 app.use((req, res) => {
