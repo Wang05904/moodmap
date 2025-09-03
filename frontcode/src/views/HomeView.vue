@@ -1,8 +1,18 @@
 <script setup>
 import MapContainer from '@/components/MapContainer.vue';
-
+import SidePanel from '@/components/SidePanel.vue';
 </script>
 
 <template>
-   <MapContainer/>
+   <div class="home">
+      <SidePanel />
+      <MapContainer />
+   </div>
 </template>
+<style scoped>
+.home {
+   position: relative;
+   width: 100%;
+   height: 100vh;
+}
+</style>
