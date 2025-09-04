@@ -6,7 +6,6 @@ const cookieParser = require('cookie-parser');
 const mysql = require('mysql2/promise'); // 使用mysql2/promise以支持async/await
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-require('dotenv').config();
 
 const app = express();
 
@@ -56,9 +55,17 @@ const userRouter = require('./routes/users')(db);
 app.use('/api/users', userRouter);
 
 // mood路由
-const createMoodRouter = require('./routes/mood');
-const moodRouter = createMoodRouter(db);
-app.use('/api/mood', moodRouter);
+const moodRoutes = require('./routes/mood'); // ✅ 传入 db
+app.use('/api/mood', moodRoutes);
+
+//record路由
+const recordRouter = require('./routes/record')(db);
+app.use('/api/record', recordRouter);
+
+// 热力图路由
+const createRelituRouter = require('./routes/relitu');
+const relituRouter = createRelituRouter(db);
+app.use('/api', relituRouter);
 
 
 // 404 错误处理
