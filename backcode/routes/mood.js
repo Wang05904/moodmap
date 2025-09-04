@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
+const jwt = require('jsonwebtoken'); // ✅ 1. 添加 jwt 导入
 
 // 工厂函数：接收 db 实例
 module.exports = (db) => {
@@ -10,7 +11,7 @@ module.exports = (db) => {
     const API_KEY = process.env.DASHSCOPE_API_KEY;
 
     if (!API_KEY) {
-      console.error('错误：未设置 DASHSCOPE_API_KEY');
+      console.error('❌ 错误：未设置 DASHSCOPE_API_KEY');
       return 3; // 默认中性
     }
 
@@ -23,6 +24,8 @@ module.exports = (db) => {
 `;
 
     try {
+      console.log('📝 正在分析情绪文本：', text); // 👈 日志：开始分析
+      console.log('🔍 正在调用通义千问 API...');
       const response = await axios.post(
         'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation',
         {
@@ -40,11 +43,16 @@ module.exports = (db) => {
         }
       );
 
-      const text = response.data.output.text.trim();
-      let level = parseInt(text);
-      return isNaN(level) || level < 1 ? 3 : level > 5 ? 5 : level;
+      const aiResponse = response.data.output.text.trim(); // ✅ 2. 改名避免冲突
+      console.log('📤 AI 返回原始结果：', aiResponse); // ✅ 3. 移到 return 前
+
+      let level = parseInt(aiResponse);
+      const score = isNaN(level) || level < 1 ? 3 : level > 5 ? 5 : level;
+      console.log('⭐ 解析后情绪分：', score); // ✅ 4. 移到 return 前
+
+      return score; // ✅ 返回前打印日志
     } catch (error) {
-      console.error('AI分析失败:', error.message);
+      console.error('❌ AI分析失败:', error.message);
       return 3; // 失败时返回中性
     }
   }
@@ -52,7 +60,9 @@ module.exports = (db) => {
   // 🔐 认证中间件（简单示例：检查 JWT）
   const authenticate = (req, res, next) => {
     const token = req.headers['authorization']?.split(' ')[1];
-    if (!token) return res.status(401).json({ error: '缺少认证 token' });
+    if (!token) {
+      return res.status(401).json({ error: '缺少认证 token' });
+    }
 
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -64,16 +74,21 @@ module.exports = (db) => {
   };
 
   // ✅ POST /api/mood/post - 发布心情
+  // ✅ 5. 修复：把 } 改为 (，并正确开启路由定义
   router.post('/post', authenticate, async (req, res) => {
     const { content, latitude, longitude } = req.body;
 
     // 验证必填字段
     if (!content || !latitude || !longitude) {
-      return res.status(400).json({ error: '缺少必要参数：content, latitude, longitude' });
+      return res.status(400).json({
+        error: '缺少必要参数：content, latitude, longitude'
+      });
     }
 
     if (typeof latitude !== 'number' || typeof longitude !== 'number') {
-      return res.status(400).json({ error: 'latitude 和 longitude 必须是数字' });
+      return res.status(400).json({
+        error: 'latitude 和 longitude 必须是数字'
+      });
     }
 
     try {
@@ -85,12 +100,13 @@ module.exports = (db) => {
         INSERT INTO mood_entry (user_id, content, sentiment_score, latitude, longitude)
         VALUES (?, ?, ?, ?, ?)
       `;
+
       db.query(
         sql,
         [req.user.id, content, sentiment_score, parseFloat(latitude), parseFloat(longitude)],
         (err, result) => {
           if (err) {
-            console.error('数据库插入失败:', err);
+            console.error('❌ 数据库插入失败:', err);
             return res.status(500).json({ error: '发布失败' });
           }
 
@@ -103,7 +119,7 @@ module.exports = (db) => {
         }
       );
     } catch (err) {
-      console.error(err);
+      console.error('❌ 服务器内部错误:', err);
       res.status(500).json({ error: '服务器内部错误' });
     }
   });
@@ -128,7 +144,7 @@ module.exports = (db) => {
 
     db.query(sql, (err, results) => {
       if (err) {
-        console.error('查询心情列表失败:', err);
+        console.error('❌ 查询心情列表失败:', err);
         return res.status(500).json({ error: '获取数据失败' });
       }
 
@@ -149,7 +165,7 @@ module.exports = (db) => {
 
     db.query(sql, [req.user.id], (err, results) => {
       if (err) {
-        console.error('查询我的心情失败:', err);
+        console.error('❌ 查询我的心情失败:', err);
         return res.status(500).json({ error: '获取数据失败' });
       }
 
