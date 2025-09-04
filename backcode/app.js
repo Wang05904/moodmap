@@ -57,6 +57,11 @@ app.use('/api/mood', moodRoutes);
 const recordRouter = require('./routes/record')(db);
 app.use('/api/record', recordRouter);
 
+// 热力图路由
+const createRelituRouter = require('./routes/relitu');
+const relituRouter = createRelituRouter(db);
+app.use('/api', relituRouter);
+
 // 404 错误处理
 app.use((req, res) => {
   res.status(404).json({ message: '未找到请求的资源' });
