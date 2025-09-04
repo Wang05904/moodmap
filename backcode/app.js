@@ -50,7 +50,7 @@ const userRouter = require('./routes/users')(db);
 app.use('/api/users', userRouter);
 
 // mood路由
-const moodRoutes = require('./routes/mood')(db); // ✅ 传入 db
+const moodRoutes = require('./routes/mood'); // ✅ 传入 db
 app.use('/api/mood', moodRoutes);
 
 //record路由
