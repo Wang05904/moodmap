@@ -10,21 +10,32 @@ const service = axios.create({
 export const sendRcd = async (data) => {
     try{
     const response = await service.post('/record/sendRcd', {
-          username,
-          content: inputContent.value,
-          location: location.value,
+          username: data.username,
+          content: data.content,
+          latitude: data.latitude,
+          longitude: data.longitude,
+          sentiment_score: data.sentiment_score,
         })
       return response;
     } catch (error) {
       console.log(error)
     }
 }
+export const getRcdByUsername = async (username) => {
+  try{
+    const response = await service.get('/record/getRcdByUsername', username)
+    return response;
+  } catch (error) {
+    console.log(error)
+  }
+}
 
   export default {
+    // getScore,
     sendRcd,
-    deleteRcd,
-    getRcds,
-    addRcd,
-    getRcdById,
-    getAllRcd
+    // deleteRcd,
+    // getRcds,
+    // addRcd,
+    getRcdByUsername,
+    // getAllRcd
   }

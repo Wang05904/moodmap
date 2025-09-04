@@ -33,7 +33,7 @@
       class="input-box"
     >
       <textarea
-        v-model="inputContent"
+        v-model="moodData.content"
         placeholder="请输入内容"
         class="input-textarea"
       ></textarea>
@@ -50,84 +50,48 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
+import {sendRcd,getRcdByUsername} from '@/api/record'; 
 
+const myRcd = ref([]);
 // 控制输入框显示隐藏
 const isInputVisible = ref(false);
-// 输入框内容
-const inputContent = ref('');
-// 定位信息
-const location = ref({});
-
+//情绪信息
+const moodData = ref({
+  username: sessionStorage.getItem('username'),
+  content: '',
+  latitude: 1,
+  longitude: 2,
+  sentiment_score:0
+});
 // 鼠标悬浮显示输入框
 const showInput = () => {
   isInputVisible.value = true;
 };
-
-// 鼠标离开隐藏输入框（可选，根据需求决定是否需要）
-const hideInput = () => {
-  isInputVisible.value = false;
-};
-
+//获取自己的记录
+onMounted(async () => {
+  myRcd.value = await getRcdByUsername(sessionStorage.getItem('username'));
+  console.log(myRcd.value);
+});
 // 发送内容到后端
 const sendContent = async () => {
-  if (!inputContent.value.trim()) {
-    ElMessage.warning('请输入内容');
-    return;
+  try{
+    const result = await sendRcd(moodData.value)
+  }catch(error){
+    ElMessage.error('发送失败');
   }
-
-  try {
-    // 获取 sessionStorage 中的 username
-    const username = sessionStorage.getItem('username');
-    if (!username) {
-      ElMessage.error('未获取到用户名');
-      return;
-    }
-
-    // 调用后端接口
-    
-  } catch (error) {
-    console.error('发送失败:', error);
-    ElMessage.error('发送异常');
-  }
+  myRcd.value.push(moodData.value);
 };
 
-// 初始化高德地图并获取定位
-onMounted(() => {
-  // 加载高德地图 SDK（需要先在 index.html 中引入，或者通过动态加载）
-  // 示例：在 index.html 中添加 
-  if (window.AMap) {
-    const AMap = window.AMap;
-    AMap.plugin('AMap.Geolocation', () => {
-      const geolocation = new AMap.Geolocation({
-        enableHighAccuracy: true, // 是否使用高精度定位
-        timeout: 10000, // 超时时间
-      });
-
-      geolocation.getCurrentPosition((status, result) => {
-        if (status === 'complete') {
-          // 获取到定位信息
-          location.value = {
-            latitude: result.position.lat,
-            longitude: result.position.lng,
-            address: result.formattedAddress,
-          };
-        } else {
-          ElMessage.warning('获取定位失败');
-          console.error('获取定位失败:', result);
-        }
-      });
-    });
-  } else {
-    ElMessage.error('高德地图 SDK 加载失败');
-  }
-});
 </script>
 
 <style scoped>
 .input-container {
+  position: fixed;
+  right: 10px;
+  bottom: 50px;
   display: flex;
   align-items: center;
-  position: relative;
+  z-index: 1000;
 }
 
 .icon {
@@ -141,8 +105,8 @@ onMounted(() => {
 
 .input-box {
   position: absolute;
-  left: -200px;
-  top: -10px;
+  right: 10px;
+  bottom: 40px;
   display: flex;
   flex-direction: column;
   background-color: #fff;
