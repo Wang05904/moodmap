@@ -32,12 +32,17 @@ module.exports = function(db) {
         message: '登录成功',
         user: {
           id: user.id,
-          username: user.username
+          username: user.username,
+          avator: user.avatar,
         }
       });
     } catch (error) {
       next(error);
     }
+  });
+  // 登出接口
+  router.post('/logout', function(req, res) {
+    res.json({ message: '登出成功' });
   });
 
   return router;

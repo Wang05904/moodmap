@@ -26,7 +26,7 @@ const router = createRouter({
 // 全局前置守卫
 router.beforeEach((to, from, next) => {
   // 获取用户登录状态
-  const isAuthenticated = localStorage.getItem('isLogin')
+  const isAuthenticated = sessionStorage.getItem('isLogin')
   
   // 判断该路由是否需要登录权限
   if (to.matched.some(record => record.meta.requiresAuth)) {
