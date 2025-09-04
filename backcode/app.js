@@ -46,7 +46,7 @@ app.get('/', (req, res) => {
   res.json({ message: 'API 服务器运行正常' });
 });
 
-// API 路由
+// user 路由
 const userRouter = require('./routes/users')(db);
 app.use('/api/users', userRouter);
 
@@ -54,6 +54,10 @@ app.use('/api/users', userRouter);
 const createMoodRouter = require('./routes/mood');
 const moodRouter = createMoodRouter(db);
 app.use('/api/mood', moodRouter);
+
+//record路由
+const recordRouter = require('./routes/record')(db);
+app.use('/api/record', recordRouter);
 
 // 404 错误处理
 app.use((req, res) => {

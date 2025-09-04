@@ -14,12 +14,6 @@ export const login = async (username, password) => {
       password
     })
     
-    // 如果登录成功，保存token到localStorage
-    if (response.data.token) {
-      localStorage.setItem('token', response.data.token)
-      localStorage.setItem('isLogin', 'true')
-    }
-    
     return response.data
   } catch (error) {
     if (error.response) {
@@ -36,14 +30,14 @@ export const login = async (username, password) => {
 }
 
 // 退出登录方法
-export const logout = () => {
-  localStorage.removeItem('token')
-  localStorage.removeItem('isLogin')
+export const logout = async () => {
+  sessionStorage.removeItem('isLogin')
+  sessionStorage.removeItem('username')
 }
 
 // 获取登录状态
 export const getLoginStatus = () => {
-  return !!localStorage.getItem('isLogin')
+  return !!sessionStorage.getItem('isLogin')
 }
 
 export default {

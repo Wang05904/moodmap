@@ -104,6 +104,9 @@ const handleLogin = async () => {
     const result = await login(form.username, form.password)
     // 登录成功
     loginSuccess.value = true
+    sessionStorage.setItem('isLogin', true)
+    sessionStorage.setItem('username', result.user.username)
+
     // 跳转到首页
     router.push('/home')
   } catch (error) {
