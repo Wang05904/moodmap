@@ -75,57 +75,56 @@ module.exports = (db) => {
 
   // ✅ POST /api/mood/post - 发布心情
   // ✅ 5. 修复：把 } 改为 (，并正确开启路由定义
-  router.post('/post', authenticate, async (req, res) => {
-    const { content, latitude, longitude } = req.body;
+router.post('/post', authenticate, async (req, res) => {
+  const { content, latitude, longitude } = req.body;
 
-    // 验证必填字段
-    if (!content || !latitude || !longitude) {
-      return res.status(400).json({
-        error: '缺少必要参数：content, latitude, longitude'
-      });
-    }
+  // 验证必填字段
+  if (!content || !latitude || !longitude) {
+    return res.status(400).json({
+      error: '缺少必要参数：content, latitude, longitude'
+    });
+  }
 
-    if (typeof latitude !== 'number' || typeof longitude !== 'number') {
-      return res.status(400).json({
-        error: 'latitude 和 longitude 必须是数字'
-      });
-    }
+  if (typeof latitude !== 'number' || typeof longitude !== 'number') {
+    return res.status(400).json({
+      error: 'latitude 和 longitude 必须是数字'
+    });
+  }
 
-    try {
-      // AI 分析情绪得分
-      const sentiment_score = await analyzeSentiment(content);
+  try {
+    // AI 分析情绪得分
+    const sentiment_score = await analyzeSentiment(content);
 
-      // 插入数据库
-      const sql = `
-        INSERT INTO mood_entry (user_id, content, sentiment_score, latitude, longitude)
-        VALUES (?, ?, ?, ?, ?)
-      `;
+    // 插入数据库
+    const sql = `
+      INSERT INTO mood_entry (user_id, content, sentiment_score, latitude, longitude)
+      VALUES (?, ?, ?, ?, ?)
+    `;
 
-      db.query(
-        sql,
-        [req.user.id, content, sentiment_score, parseFloat(latitude), parseFloat(longitude)],
-        (err, result) => {
-          if (err) {
-            console.error('❌ 数据库插入失败:', err);
-            return res.status(500).json({ error: '发布失败' });
-          }
+    // 使用 await 等待查询完成
+    const [result] = await db.query(sql, [
+      req.user.id,
+      content,
+      sentiment_score,
+      parseFloat(latitude),
+      parseFloat(longitude)
+    ]);
 
-          res.json({
-            status: 'success',
-            message: '心情发布成功',
-            mood_id: result.insertId,
-            sentiment_score
-          });
-        }
-      );
-    } catch (err) {
-      console.error('❌ 服务器内部错误:', err);
-      res.status(500).json({ error: '服务器内部错误' });
-    }
-  });
+    res.json({
+      status: 'success',
+      message: '心情发布成功',
+      mood_id: result.insertId,
+      sentiment_score
+    });
+
+  } catch (err) {
+    console.error('服务器内部错误:', err);
+    res.status(500).json({ error: '服务器内部错误' });
+  }
+});
 
   // ✅ GET /api/mood - 获取所有心情（用于地图展示）
-  router.get('/', (req, res) => {
+  router.get('/', async(req, res) => {
     const sql = `
       SELECT 
         me.mood_id,
@@ -142,38 +141,31 @@ module.exports = (db) => {
       ORDER BY me.created_at DESC
     `;
 
-    db.query(sql, (err, results) => {
-      if (err) {
-        console.error('❌ 查询心情列表失败:', err);
-        return res.status(500).json({ error: '获取数据失败' });
-      }
-
-      res.json({
-        status: 'success',
-        data: results
-      });
-    });
-  });
+    try {
+      const [results] = await db.query(sql);
+      res.json({ status: 'success', data: results });
+    } catch (err) {
+      console.error('❌ 查询心情列表失败:', err);
+      res.status(500).json({ error: '获取数据失败' });
+    }
+});
 
   // ✅ GET /api/mood/my - 获取当前用户的心情
-  router.get('/my', authenticate, (req, res) => {
+  router.get('/my', authenticate, async(req, res) => {
     const sql = `
       SELECT * FROM mood_entry 
       WHERE user_id = ?
       ORDER BY created_at DESC
     `;
 
-    db.query(sql, [req.user.id], (err, results) => {
-      if (err) {
-        console.error('❌ 查询我的心情失败:', err);
-        return res.status(500).json({ error: '获取数据失败' });
-      }
+  try {
+    const [results] = await db.query(sql, [req.user.id]);
+    res.json({ status: 'success', data: results });
+  } catch (err) {
+    console.error('❌ 查询我的心情失败:', err);
+    res.status(500).json({ error: '获取数据失败' });
+  }
 
-      res.json({
-        status: 'success',
-        data: results
-      });
-    });
   });
 
   return router;

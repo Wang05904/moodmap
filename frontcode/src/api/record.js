@@ -9,6 +9,7 @@ const service = axios.create({
   // 发送记录
 export const sendRcd = async (data) => {
     try{
+
     const response = await service.post('/record/sendRcd', {
           username,
           content: inputContent.value,

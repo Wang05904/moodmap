@@ -6,7 +6,6 @@ const cookieParser = require('cookie-parser');
 const mysql = require('mysql2/promise'); // 使用mysql2/promise以支持async/await
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-require('dotenv').config();
 
 const app = express();
 
