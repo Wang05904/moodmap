@@ -40,8 +40,10 @@
       <button
         @click="sendContent"
         class="send-btn"
+        :style="{ 'background-color': isloading ? 'gray' : '#409eff' }"
       >
-        发送
+        {{ isloading ? '发送中...' : '发送' }}
+
       </button>
     </div>
   </div>
@@ -53,7 +55,7 @@ import { ElMessage } from 'element-plus';
 import {sendRcd} from '@/api/record'; 
 import { useRcdStore } from '@/stores/rcdStore'
 const rcdStore = useRcdStore()
-
+const isloading = ref(false);
 const myRcd = ref([]);
 // 控制输入框显示隐藏
 const isInputVisible = ref(false);
@@ -74,14 +76,16 @@ onMounted(() => {
 })
 // 发送内容到后端
 const sendContent = async () => {
-  try{
     console.log(moodData.value);
-    const result = await sendRcd(moodData.value)
+    isloading.value = true;
+    try{
+      const result = await sendRcd(moodData.value)
     rcdStore.initRcdList()
   }catch(error){
     ElMessage.error('发送失败');
   }
   moodData.value.content = '';
+  isloading.value = false;
 };
 
 </script>

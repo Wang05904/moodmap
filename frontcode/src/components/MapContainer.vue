@@ -198,7 +198,7 @@ onUnmounted(() => {
     >
       {{ heatmapVisible ? '关闭热力图' : '显示热力图' }}
     </button>
-    <button @click="handleUploadLocation" style="position: absolute; top: 20px; left: 20px; z-index: 1000;">上传我的位置</button>
+    <!-- <button @click="handleUploadLocation" style="position: absolute; top: 20px; left: 20px; z-index: 1000;">上传我的位置</button> -->
     <div id="container"></div>
   </div>
 </template>
