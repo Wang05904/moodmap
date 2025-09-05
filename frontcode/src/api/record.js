@@ -26,35 +26,55 @@ const analyzeMood = async (content) => {
 export const sendRcd = async (data) => {
   try {
     //  1. 先调用 AI 分析，获取情绪分
-    const sentiment_score = await analyzeMood(inputContent.value)
-
+    const sentiment_score = await analyzeMood(data.content)
+    console.log('情绪分:', sentiment_score)
+    const moodData = {
+      userId: data.userId,
+      content: data.content,
+      latitude: data.latitude,
+      longitude: data.longitude,
+      sentiment_score: sentiment_score,
+    }
     // 2. 再发送记录（后端 /record/sendRcd 接收情绪分）
-    const response = await service.post('/record/sendRcd', {
-          username: data.username,
-          content: data.content,
-          latitude: data.latitude,
-          longitude: data.longitude,
-          sentiment_score: data.sentiment_score,
-        })
-      return response;
+    const response = await service.post('/record/sendRcd', moodData)
+      return moodData;
     } catch (error) {
       console.log(error)
     }
 }
-export const getRcdByUsername = async (username) => {
+export const getRcdByUserId = async (userId) => {
   try{
-    const response = await service.get('/record/getRcdByUsername', username)
+    const response = await service.get('/record/getRcdByUserId', {
+      params: {
+        userId: userId // 会自动转换为查询参数 ?userId=1
+      }
+    })
     return response;
   } catch (error) {
     console.log(error)
   }
 }
+export const deleteRcdById = async (id) => {
+  try {
+    console.log('删除记录:', id);
+    const response = await service.delete(`/record/deleteRcdById/${id}`);
+    console.log('删除记录响应:', response);
+    if (!response.data.success) {
+      throw new Error('删除记录失败');
+    }
+    
+    return response;
+  } catch (error) {
+    console.error('删除记录时发生错误:', error);
+    throw error; // 抛出自定义错误处理
+  }
+};
   export default {
     // getScore,
     sendRcd,
-    // deleteRcd,
+    deleteRcdById,
     // getRcds,
     // addRcd,
-    getRcdByUsername,
+    getRcdByUserId,
     // getAllRcd
   }

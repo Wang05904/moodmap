@@ -32,7 +32,7 @@ export const login = async (username, password) => {
 // 退出登录方法
 export const logout = async () => {
   sessionStorage.removeItem('isLogin')
-  sessionStorage.removeItem('username')
+  sessionStorage.removeItem('userId')
 }
 
 // 获取登录状态

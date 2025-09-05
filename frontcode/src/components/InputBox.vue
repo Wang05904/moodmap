@@ -50,36 +50,38 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
-import {sendRcd,getRcdByUsername} from '@/api/record'; 
+import {sendRcd} from '@/api/record'; 
+import { useRcdStore } from '@/stores/rcdStore'
+const rcdStore = useRcdStore()
 
 const myRcd = ref([]);
 // 控制输入框显示隐藏
 const isInputVisible = ref(false);
 //情绪信息
 const moodData = ref({
-  username: sessionStorage.getItem('username'),
+  userId: sessionStorage.getItem('userId'),
   content: '',
   latitude: 1,
-  longitude: 2,
-  sentiment_score:0
+  longitude: 2
 });
 // 鼠标悬浮显示输入框
 const showInput = () => {
   isInputVisible.value = true;
 };
 //获取自己的记录
-onMounted(async () => {
-  myRcd.value = await getRcdByUsername(sessionStorage.getItem('username'));
-  console.log(myRcd.value);
-});
+onMounted(() => {
+  rcdStore.initRcdList()
+})
 // 发送内容到后端
 const sendContent = async () => {
   try{
+    console.log(moodData.value);
     const result = await sendRcd(moodData.value)
+    rcdStore.initRcdList()
   }catch(error){
     ElMessage.error('发送失败');
   }
-  myRcd.value.push(moodData.value);
+  moodData.value.content = '';
 };
 
 </script>

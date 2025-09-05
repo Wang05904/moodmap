@@ -13,8 +13,8 @@ const app = express();
 const db = mysql.createPool({
   host: 'localhost',
   user: 'root', // 替换为你的数据库用户名
-  password: '35743528fyf@', // 替换为你的密码
-  database: 'data', // 替换为你的数据库名
+  password: '123456', // 替换为你的密码
+  database: 'moodmap', // 替换为你的数据库名
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0

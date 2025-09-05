@@ -1,6 +1,15 @@
 <script setup>
-import { ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import { logout } from '@/api/login'
+import { useRcdStore } from '@/stores/rcdStore'
+
+const rcdStore = useRcdStore()
+
+// 组件挂载时初始化数据
+onMounted(() => {
+  rcdStore.initRcdList()
+  console.log('rcdStore:', rcdStore.myRcd)
+})
 
 const isExpanded = ref(true);
 
@@ -11,7 +20,7 @@ const togglePanel = () => {
 const handleLogout = () => {
   logout().then(() => {
     sessionStorage.removeItem('isLogin');
-    sessionStorage.removeItem('username');
+    sessionStorage.removeItem('userId');
     window.location.reload();
   });
 };
@@ -35,10 +44,10 @@ const handleLogout = () => {
       
       <!-- 心情记录列表 -->
       <div class="mood-list">
-        <div class="mood-item" v-for="(item, index) in 3" :key="index">
+        <div class="mood-item"v-for="item in rcdStore.myRcd" :key="item.mood_id">
           <div class="mood-emoji">😊</div>
-          <div class="mood-text">记录{{ index + 1 }}</div>
-          <div class="mood-delete">🗑️</div>
+          <div class="mood-text">{{item.content}}</div>
+          <div class="mood-delete" @click="() => rcdStore.removeRcdItem(item.mood_id)">🗑️</div>
         </div>
       </div>
     </div>

@@ -105,7 +105,7 @@ const handleLogin = async () => {
     // 登录成功
     loginSuccess.value = true
     sessionStorage.setItem('isLogin', true)
-    sessionStorage.setItem('username', result.user.username)
+    sessionStorage.setItem('userId', result.user.id)
 
     // 跳转到首页
     router.push('/home')
