@@ -1,42 +1,32 @@
-<script setup>
-import { ref } from 'vue';
-
-const isExpanded = ref(true);
-
-const togglePanel = () => {
-  isExpanded.value = !isExpanded.value;
-};
-</script>
-
 <template>
   <div class="side-panel" :class="{ 'collapsed': !isExpanded }">
     <div class="panel-content" v-if="isExpanded">
       <!-- 收缩按钮 -->
       <button class="collapse-btn" @click="togglePanel">
-        <span>←</span>
+        ⬅️
       </button>
-      <button class="logout-btn" @click="logout">登出</button>
+      <button class="logout-btn" @click="handleLogout">登出</button>
       <!-- 用户信息区域 -->
       <div class="user-info">
         <div class="avatar">
           <img src="@/assets/default-avatar.png" alt="用户头像">
         </div>
-        <div class="nickname">用户昵称</div>
+        <div class="nickname">{{ username }}</div>
       </div>
       
       <!-- 心情记录列表 -->
       <div class="mood-list">
-        <div class="mood-item" v-for="(item, index) in 3" :key="index">
-          <div class="mood-emoji">😊</div>
-          <div class="mood-text">记录{{ index + 1 }}</div>
-          <div class="mood-delete">🗑️</div>
+        <div class="mood-item" v-for="item in rcdStore.myRcd" :key="item.mood_id">
+          <div class="mood-emoji" :class="getEmojiClass(item.sentiment_score)">{{ getEmoji(item.sentiment_score) }}</div>
+          <div class="mood-text">{{ item.content }}</div>
+          <div class="mood-delete" @click="() => rcdStore.removeRcdItem(item.mood_id)">🗑️</div>
         </div>
       </div>
     </div>
     
-    <!-- 展开按钮 -->
+    <!-- 展开按钮 ◀️▶️-->
     <button v-if="!isExpanded" class="expand-btn" @click="togglePanel">
-      <span>→</span>
+     ➡️
     </button>
   </div>
 </template>
@@ -127,7 +117,27 @@ const togglePanel = () => {
 
 .mood-emoji {
   margin-right: 10px;
-  font-size: 20px;
+  font-size: 24px;
+}
+
+.mood-emoji.sad {
+  color: #ff4d4d; /* 红色 */
+}
+
+.mood-emoji.ok {
+  color: #f9c23c; /* 黄色 */
+}
+
+.mood-emoji.happy {
+  color: #8bc34a; /* 绿色 */
+}
+
+.mood-emoji.very-happy {
+  color: #5cb85c; /* 较亮绿色 */
+}
+
+.mood-emoji.extremely-happy {
+  color: #4caf50; /* 最亮绿色 */
 }
 
 .mood-text {
@@ -143,7 +153,7 @@ const togglePanel = () => {
   opacity: 1;
 }
 
-.logout-btn{
+.logout-btn {
   margin: 20px;
   position: fixed;
   top: 0;
@@ -155,4 +165,97 @@ const togglePanel = () => {
   height: 30px;
   border: none;
 }
+
+/* 添加字体图标库 */
+@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css');
+
+/* 添加一些基本的间距和布局 */
+.side-panel.collapsed .collapse-btn {
+  transform: rotate(180deg);
+  padding: 10px;
+}
+
+.panel-content .logout-btn {
+  top: 10px;
+  right: 10px;
+  background: red;
+  color: white;
+  border-radius: 10px;
+  width: 80px;
+  height: 30px;
+  border: none;
+}
+
+.user-info .avatar img {
+  border-radius: 50%;
+}
+
+.user-info .nickname {
+  margin-top: 10px;
+}
 </style>
+
+<script setup>
+import { onMounted, ref } from 'vue';
+import { logout } from '@/api/login';
+import { useRcdStore } from '@/stores/rcdStore';
+
+const rcdStore = useRcdStore();
+const username = sessionStorage.getItem('username') || '用户昵称';
+
+// 组件挂载时初始化数据
+onMounted(() => {
+  rcdStore.initRcdList();
+  console.log('rcdStore:', rcdStore.myRcd);
+});
+
+const isExpanded = ref(true);
+
+const togglePanel = () => {
+  isExpanded.value = !isExpanded.value;
+};
+
+const handleLogout = () => {
+  logout().then(() => {
+    sessionStorage.removeItem('isLogin');
+    sessionStorage.removeItem('userId');
+    window.location.reload();
+  });
+};
+
+// 根据 sentiment_score 获取对应的 emoji
+const getEmoji = (score) => {
+  switch (score) {
+    case 1:
+      return '😢'; // 非常悲伤
+    case 2:
+      return '😔'; // 悲伤
+    case 3:
+      return '😐'; // 中性
+    case 4:
+      return '😊'; // 开心
+    case 5:
+      return '😄'; // 非常开心
+    default:
+      return '🤔'; // 默认表情
+  }
+};
+
+// 根据 sentiment_score 获取对应的 emoji 类
+const getEmojiClass = (score) => {
+  switch (score) {
+    case 1:
+      return 'sad';
+    case 2:
+      return 'ok';
+    case 3:
+      return 'happy';
+    case 4:
+      return 'very-happy';
+    case 5:
+      return 'extremely-happy';
+    default:
+      return '';
+  }
+};
+</script>

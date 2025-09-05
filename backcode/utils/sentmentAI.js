@@ -1,7 +1,7 @@
 // utils/sentimentAI.js
 const axios = require('axios');
 
-const API_KEY = process.env.DASHSCOPE_API_KEY;
+const API_KEY = "sk-5c70026a33684fc5aebf97fe7ec400e1";
 
 /**
  * 使用通义千问分析文本情绪，返回 1-5 级评分
