@@ -24,7 +24,7 @@ async function initHeatmap(AMap) {
     lat: Number(item.lat),
     count: Number(item.count)
   }));
-  console.log('热力图数据:', data); // 检查数据
+  console.log('热力图数据:', data); 
   heatmapInstance.value = new AMap.HeatMap(map, {
     radius: 25,
     opacity: [0, 0.8],
@@ -38,22 +38,44 @@ async function initHeatmap(AMap) {
   });
   heatmapInstance.value.setDataSet({ data, max: 5 });
   heatmapInstance.value.hide(); // 默认隐藏
-  // 检查实例
   console.log('heatmapInstance:', heatmapInstance.value);
 }
 
+// ========== 关键改动1：修改 toggleHeatmap，添加标记显示/隐藏控制 ==========
 function toggleHeatmap() {
   if (!heatmapInstance.value || typeof heatmapInstance.value.hide !== 'function') {
     console.warn('热力图尚未初始化或方法不存在');
     return;
   }
   heatmapVisible.value = !heatmapVisible.value;
+  
   if (heatmapVisible.value) {
     heatmapInstance.value.show();
+    hideAllMarkers(); // 打开热力图 → 隐藏所有标记
   } else {
     heatmapInstance.value.hide();
+    showAllMarkers(); // 关闭热力图 → 显示所有标记
   }
 }
+
+// ========== 关键改动2：新增标记批量显示/隐藏函数 ==========
+// 隐藏所有位置标记
+function hideAllMarkers() {
+  otherMarkers.forEach(marker => {
+    if (map && marker && typeof marker.hide === 'function') {
+      marker.hide(); // AMap.Marker 自带 hide 方法
+    }
+  });
+}
+// 显示所有位置标记
+function showAllMarkers() {
+  otherMarkers.forEach(marker => {
+    if (map && marker && typeof marker.show === 'function') {
+      marker.show(); // AMap.Marker 自带 show 方法
+    }
+  });
+}
+
 let userMarker = null;
 let otherMarkers = [];
 let fetchTimer = null;
@@ -67,7 +89,7 @@ function uploadLocation(lng, lat, user_id) {
   });
 }
 
-
+// ========== 关键改动3：修改 fetchAllLocations，新增热力图状态判断 ==========
 // 获取所有用户位置并渲染到地图
 function fetchAllLocations(myUserId) {
   fetch('/api/location')
@@ -81,20 +103,15 @@ function fetchAllLocations(myUserId) {
       
       // 为每个心情创建标记
       locations.forEach(loc => {
-        // 判断是否为当前用户
         const isMe = loc.user_id == myUserId;
         console.log('当前用户ID:', myUserId, '记录用户ID:', loc.user_id, 'isMe:', isMe);
         const marker = new window.AMap.Marker({
           position: [parseFloat(loc.lng), parseFloat(loc.lat)],
-          title: loc.content, // 标记标题为心情内容
-          // label: {
-          //   content: loc.content, // 标记标签显示心情内容
-          //   offset: new window.AMap.Pixel(10, 10)
-          // }
+          title: loc.content,
           icon: isMe
-          ? 'https://webapi.amap.com/theme/v1.3/markers/n/mark_r.png' // 当前用户用特殊图标
-          : 'assets/mark_b.png', // 其他用户用普通图标
-          opacity:0.7
+            ? 'https://webapi.amap.com/theme/v1.3/markers/n/mark_r.png'
+            : 'assets/mark_b.png',
+          opacity: 0.7
         });
         // 双击显示心情内容和评价
         marker.on('dblclick', () => {
@@ -113,6 +130,11 @@ function fetchAllLocations(myUserId) {
         map && map.add(marker);
         otherMarkers.push(marker);
       });
+
+      // 新增：如果当前热力图是显示状态，新标记创建后直接隐藏
+      if (heatmapVisible.value) {
+        hideAllMarkers();
+      }
     })
     .catch(error => {
       console.error('获取位置信息失败:', error);
@@ -121,17 +143,13 @@ function fetchAllLocations(myUserId) {
 
 // 定时获取所有用户位置
 function startFetchingLocations() {
-  //useRcdStore.getRcd()
-  // console.log('当前用户记录:', rcdStore.allRcd);
   const user_id = sessionStorage.getItem('userId');
   
   // 等待地图完全初始化
   const checkMapReady = setInterval(() => {
     if (map) {
       clearInterval(checkMapReady);
-      // 立即获取一次
       fetchAllLocations(user_id);
-      
       // 每10秒获取一次
       fetchTimer = setInterval(() => {
         fetchAllLocations(user_id);
@@ -155,8 +173,8 @@ onMounted(() => {
         zoom: 16.5,
         center: [120.3440, 30.3146],
       });
-      await initHeatmap(AMap); // 初始化热力图
-      startFetchingLocations(); // 启动定时获取所有用户位置
+      await initHeatmap(AMap); 
+      startFetchingLocations(); 
     })
     .catch((e) => {
       console.log(e);
@@ -165,6 +183,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   map?.destroy();
+  fetchTimer && clearInterval(fetchTimer); // 新增：清除定时器，避免内存泄漏
 });
 </script>
 
@@ -178,7 +197,6 @@ onUnmounted(() => {
     >
       {{ heatmapVisible ? '关闭热力图' : '显示热力图' }}
     </button>
-    <!-- <button @click="handleUploadLocation" style="position: absolute; top: 20px; left: 20px; z-index: 1000;">上传我的位置</button> -->
     <div id="container"></div>
   </div>
 </template>
@@ -207,5 +225,10 @@ onUnmounted(() => {
 .heatmap-toggle-btn:hover {
   background: linear-gradient(90deg, #38e4ae 0%, #4f8cff 100%);
   box-shadow: 0 4px 24px rgba(56, 228, 174, 0.18);
+}
+.heatmap-toggle-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 </style>
