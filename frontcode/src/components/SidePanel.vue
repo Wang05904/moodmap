@@ -33,7 +33,7 @@ const handleLogout = () => {
       <button class="collapse-btn" @click="togglePanel">
         <span>←</span>
       </button>
-      <button class="logout-btn" @click="handleLogout">登出</button>
+      <button class="logout-btn" @click="logout">登出</button>
       <!-- 用户信息区域 -->
       <div class="user-info">
         <div class="avatar">

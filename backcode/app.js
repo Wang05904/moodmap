@@ -15,6 +15,7 @@ const db = mysql.createPool({
   user: 'root', // 替换为你的数据库用户名
   password: '123456', // 替换为你的密码
   database: 'moodmap', // 替换为你的数据库名
+
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
@@ -45,7 +46,12 @@ app.get('/', (req, res) => {
   res.json({ message: 'API 服务器运行正常' });
 });
 
-// user 路由
+//location路由
+const createLocationRouter = require('./routes/location');
+const locationRouter = createLocationRouter(db);
+app.use('/api/location', locationRouter);
+
+// API 路由
 const userRouter = require('./routes/users')(db);
 app.use('/api/users', userRouter);
 
@@ -61,6 +67,7 @@ app.use('/api/record', recordRouter);
 const createRelituRouter = require('./routes/relitu');
 const relituRouter = createRelituRouter(db);
 app.use('/api', relituRouter);
+
 
 // 404 错误处理
 app.use((req, res) => {
