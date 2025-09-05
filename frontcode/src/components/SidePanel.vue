@@ -9,7 +9,7 @@
       <!-- 用户信息区域 -->
       <div class="user-info">
         <div class="avatar">
-          <img src="@/assets/default-avatar.png" alt="用户头像">
+          <img src="@/assets/label1.jpg" alt="用户头像">
         </div>
         <div class="nickname">{{ username }}</div>
       </div>

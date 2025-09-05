@@ -30,7 +30,6 @@
     <div
       v-show="isInputVisible"
       class="input-box"
-      @mouseleave="hideInput"
     >
       <div class="input-wrapper">
         <textarea
@@ -96,7 +95,7 @@ const sendContent = async () => {
   moodData.value.content = '';
   isloading.value = false;
   // 发送成功后隐藏输入框
-  hideInput();
+  // hideInput();
 };
 
 </script>
