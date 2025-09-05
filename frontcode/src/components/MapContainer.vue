@@ -1,4 +1,3 @@
-
 <script setup>
 import { ref, onMounted, onUnmounted } from "vue";
 import AMapLoader from "@amap/amap-jsapi-loader";
@@ -35,7 +34,7 @@ async function initHeatmap(AMap) {
       1.0: 'red'
     }
   });
-  heatmapInstance.value.setDataSet({ data, max: 100 });
+  heatmapInstance.value.setDataSet({ data, max: 10 });
   heatmapInstance.value.hide(); // 默认隐藏
   // 检查实例
   console.log('heatmapInstance:', heatmapInstance.value);
@@ -79,20 +78,38 @@ function fetchAllLocations(myUserId) {
       otherMarkers.forEach(m => map && map.remove(m));
       otherMarkers = [];
       
-      // 为每个用户位置创建标记
+      // 为每个心情创建标记
       locations.forEach(loc => {
-        if (loc.user_id !== myUserId) {
-          const marker = new window.AMap.Marker({
-            position: [parseFloat(loc.lng), parseFloat(loc.lat)], // 确保是数字类型
-            title: loc.user_id,
-            label: {
-              content: loc.user_id,
-              offset: new window.AMap.Pixel(10, 10)
-            }
+        // 判断是否为当前用户
+        const isMe = loc.user_id === myUserId;
+        const marker = new window.AMap.Marker({
+          position: [parseFloat(loc.lng), parseFloat(loc.lat)],
+          title: loc.content, // 标记标题为心情内容
+          // label: {
+          //   content: loc.content, // 标记标签显示心情内容
+          //   offset: new window.AMap.Pixel(10, 10)
+          // }
+          icon: isMe
+          ? 'https://webapi.amap.com/theme/v1.3/markers/n/mark_r.png' // 当前用户用特殊图标
+          : 'assets/mark_b.png', // 其他用户用普通图标
+          opacity:0.7
+        });
+        // 双击显示心情内容和评价
+        marker.on('dblclick', () => {
+          const info = `
+            <div>
+              <strong>心情内容：</strong> ${loc.content}<br/>
+              <strong>情绪分数：</strong> ${loc.sentiment_score}
+            </div>
+          `;
+          const infoWindow = new window.AMap.InfoWindow({
+            content: info,
+            offset: new window.AMap.Pixel(0, -30)
           });
-          map && map.add(marker);
-          otherMarkers.push(marker);
-        }
+          infoWindow.open(map, marker.getPosition());
+        });
+        map && map.add(marker);
+        otherMarkers.push(marker);
       });
     })
     .catch(error => {
@@ -159,6 +176,7 @@ onMounted(() => {
         center: [120.3440, 30.3146],
       });
       await initHeatmap(AMap); // 初始化热力图
+      startFetchingLocations(); // 启动定时获取所有用户位置
     })
     .catch((e) => {
       console.log(e);
@@ -180,10 +198,9 @@ onUnmounted(() => {
     >
       {{ heatmapVisible ? '关闭热力图' : '显示热力图' }}
     </button>
+    <button @click="handleUploadLocation" style="position: absolute; top: 20px; left: 20px; z-index: 1000;">上传我的位置</button>
     <div id="container"></div>
   </div>
-  <div id="container"></div>
-  <!-- <button @click="handleUploadLocation" style="position: absolute; top: 20px; left: 20px; z-index: 1000;">上传我的位置</button> -->
 </template>
 
 <style scoped>
