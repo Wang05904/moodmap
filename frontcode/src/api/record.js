@@ -84,6 +84,15 @@ export const getRcdByUserId = async (userId) => {
     console.log(error)
   }
 }
+export const getAllRcd = async () => {
+  try{
+    const response = await service.post('/record/getAllRcd')
+    console.log('所有记录:', response.data);
+    return response;
+  } catch (error) {
+    console.log(error)
+  }
+}
 export const deleteRcdById = async (id) => {
   try {
     console.log('删除记录:', id);
@@ -106,5 +115,5 @@ export const deleteRcdById = async (id) => {
     // getRcds,
     // addRcd,
     getRcdByUserId,
-    // getAllRcd
+    getAllRcd
   }

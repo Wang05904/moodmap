@@ -63,6 +63,9 @@ module.exports = function (db) {
     });
 
   // 获取所有记录接口
-  router.post("/getAllRcd", async function (req, res) {});
+  router.post("/getAllRcd", async function (req, res) {
+    const records = await db.query("SELECT * FROM mood_entry");
+    res.json(records[0]);
+  });
   return router;
 };
