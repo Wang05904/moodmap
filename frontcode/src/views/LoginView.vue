@@ -79,10 +79,10 @@
       </div>
       
       <!-- 底部提示 -->
-      <div class="login-footer">
+      <!-- <div class="login-footer">
         <p>默认账号: user</p>
         <p>默认密码: 111</p>
-      </div>
+      </div> -->
     </div>
     
     <!-- 注册弹窗 -->

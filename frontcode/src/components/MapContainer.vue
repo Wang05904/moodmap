@@ -119,35 +119,11 @@ function fetchAllLocations(myUserId) {
     });
 }
 
-// 点击按钮时上传位置
-function handleUploadLocation() {
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const lng = position.coords.longitude;
-        const lat = position.coords.latitude;
-        if (userMarker) map.remove(userMarker);
-        userMarker = new window.AMap.Marker({ position: [lng, lat], title: "你的位置" });
-        map.add(userMarker);
-        const user_id = localStorage.user_id || 'user_' + Math.random().toString(36).slice(2, 10);
-        localStorage.user_id = user_id;
-        uploadLocation(lng, lat, user_id);
-        alert('位置已上传！');
-      },
-      (error) => {
-        alert("定位失败：" + error.message);
-      }
-    );
-  } else {
-    alert("当前浏览器不支持定位功能");
-  }
-}
-
 // 定时获取所有用户位置
 function startFetchingLocations() {
-  useRcdStore.getRcd().then(() => {
-    console.log('当前用户记录:', rcdStore.allRcd);
-  }) ;
+  //useRcdStore.getRcd()
+  // console.log('当前用户记录:', rcdStore.allRcd);
+  const user_id = sessionStorage.getItem('userId');
   
   // 等待地图完全初始化
   const checkMapReady = setInterval(() => {
