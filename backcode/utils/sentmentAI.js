@@ -53,4 +53,50 @@ async function analyzeSentiment(text) {
   }
 }
 
-module.exports = { analyzeSentiment };
+async function analyzeTotalMood(text) {
+  const url = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation';
+
+  // 精心设计的 Prompt，确保返回数字
+  const prompt = `
+   请分析以下情绪统计数据并生成一段自然流畅的总结文字。
+  数据说明：xAxis为情绪类别（1分悲伤、2分低落、3分中性、4分开心、5分愉悦），series为对应类别的计数。
+  
+  分析要求：
+  1. 指出占比最高的情绪类别及主要特征
+  2. 分析整体情绪倾向（偏负面/中性/偏正面）
+  3. 用可爱的口吻分析
+  4.第一句话委婉地说整体情绪
+  5.第二句话给出积极建议
+  6.不要超过5句话
+  
+  数据：${JSON.stringify(text)}
+  `;
+
+  try {
+    const response = await axios.post(url, {
+      model: 'qwen-turbo',
+      input: {
+        messages: [
+          { role: 'user', content: prompt }
+        ]
+      },
+      parameters: {
+        temperature: 0.1  // 降低随机性，提高一致性
+      }
+    }, {
+      headers: {
+        'Authorization': `Bearer ${API_KEY}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    let analyse = response.data.output.text.trim();
+
+    return analyse;
+  } catch (error) {
+    console.error('AI情绪分析失败:', error.response?.data || error.message);
+    return "分析失败";
+  }
+}
+
+module.exports = { analyzeSentiment,analyzeTotalMood };

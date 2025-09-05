@@ -1,12 +1,23 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from "vue";
+import { ref, onMounted, onUnmounted, nextTick } from "vue";
 import AMapLoader from "@amap/amap-jsapi-loader";
 import { fetchHeatmapData } from "../api/relitu";
-import { useRcdStore } from '@/stores/rcdStore'
+import * as echarts from 'echarts'
+import { analyzeTotalMood } from "@/api/record";
 
 let map = null;
 const heatmapInstance = ref(null);
 const heatmapVisible = ref(false);
+
+// 新增：看板相关状态
+const boardVisible = ref(false); // 看板弹窗显示状态
+const sentimentData = ref({
+  xAxis: ['1分(悲伤)', '2分(低落)', '3分(中性)', '4分(开心)', '5分(愉悦)'],
+  series: [0, 0, 0, 0, 0] // 初始各情绪计数为0
+});
+let analyse = ref("")
+
+let myChart = null; // echarts实例
 
 async function initHeatmap(AMap) {
   console.log('initHeatmap 调用');
@@ -40,6 +51,15 @@ async function initHeatmap(AMap) {
   console.log('heatmapInstance:', heatmapInstance.value);
 }
 
+const handleAnalyze = async () => {
+  const result = await analyzeTotalMood(sentimentData.value);
+  if (result.success) {
+    analyse.value = result.data.analysis
+    console.log('分析结果:', result.data.analysis);
+  } else {
+    console.error('分析失败:', result.message);
+  }
+};
 // ========== 关键改动1：修改 toggleHeatmap，添加标记显示/隐藏控制 ==========
 function toggleHeatmap() {
   if (!heatmapInstance.value || typeof heatmapInstance.value.hide !== 'function') {
@@ -105,6 +125,21 @@ function uploadLocation(lng, lat, user_id) {
   });
 }
 
+function calculateSentimentData(locations) {
+  // 初始化计数数组（索引0对应1分，索引1对应2分...）
+  const countArr = [0, 0, 0, 0, 0];
+  locations.forEach(loc => {
+    // 确保情绪分数在1-5范围内
+    const score = Math.min(Math.max(Number(loc.sentiment_score), 1), 5);
+    // 转换为数组索引（1分→0，2分→1...）
+    const index = score - 1;
+    countArr[index] += 1;
+  });
+  sentimentData.value.series = countArr;
+  // 更新图表数据
+  updateChart();
+}
+
 // ========== 关键改动3：修改 fetchAllLocations，新增热力图状态判断 ==========
 // 获取所有用户位置并渲染到地图
 function fetchAllLocations(myUserId) {
@@ -112,6 +147,9 @@ function fetchAllLocations(myUserId) {
     .then(res => res.json())
     .then(locations => {
       console.log('获取到的位置数据:', locations);
+
+      // 新增：更新情绪数据
+      calculateSentimentData(locations);
 
       // 清除之前的所有标记
       otherMarkers.forEach(m => map && map.remove(m));
@@ -151,7 +189,7 @@ function fetchAllLocations(myUserId) {
 
           // 构建样式字符串
           const containerStyle = `
-    background-color: ${baseColor}15;  // 非常浅的背景色
+    background-color: ${baseColor}15;
     border-radius: 12px;
     padding: 15px;
     box-shadow: 0 4px 12px ${shadowColor};
@@ -206,6 +244,137 @@ function startFetchingLocations() {
   }, 100);
 }
 
+
+function initChart() {
+  nextTick(() => {
+    // 获取图表DOM容器
+    const chartDom = document.getElementById('sentiment-chart');
+    if (!chartDom) return;
+    handleAnalyze()
+    // 初始化echarts实例
+    myChart = echarts.init(chartDom);
+
+    // 配置图表选项
+    const option = {
+      title: {
+        text: '情绪指数分布统计',
+        left: 'center',
+        textStyle: {
+          fontSize: 16,
+          fontWeight: 'bold',
+          color: '#333'
+        }
+      },
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: {
+          type: 'shadow'
+        },
+        formatter: '{b}: {c} 条记录' // 鼠标悬浮显示格式
+      },
+      grid: {
+        left: '3%',
+        right: '4%',
+        bottom: '3%',
+        containLabel: true
+      },
+      xAxis: {
+        type: 'category',
+        data: sentimentData.value.xAxis,
+        axisLabel: {
+          color: '#666',
+          fontSize: 12
+        },
+        axisLine: {
+          lineStyle: {
+            color: '#eee'
+          }
+        }
+      },
+      yAxis: {
+        type: 'value',
+        min: 0, // 纵轴最小值为0（避免负数）
+        axisLabel: {
+          color: '#666',
+          fontSize: 12,
+          formatter: '{value} 条' // 纵轴标签格式
+        },
+        axisLine: {
+          lineStyle: {
+            color: '#eee'
+          }
+        },
+        splitLine: {
+          lineStyle: {
+            color: '#f5f5f5'
+          }
+        }
+      },
+      series: [
+        {
+          name: '记录个数',
+          type: 'bar',
+          barWidth: '60%',
+          data: sentimentData.value.series,
+          // 为不同情绪指数设置渐变颜色
+          itemStyle: {
+            color: (params) => {
+              const colorList = [
+                ['#4A90E2', '#8EC5FC'], // 1分：蓝色渐变
+                ['#7B68EE', '#B19CD9'], // 2分：靛蓝渐变
+                ['#DDA0DD', '#E6C0E9'], // 3分：紫色渐变
+                ['#FFB6C1', '#FFD1DC'], // 4分：粉色渐变
+                ['#FF69B4', '#FF85A2']  // 5分：深粉渐变
+              ];
+              return new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: colorList[params.dataIndex][0] },
+                { offset: 1, color: colorList[params.dataIndex][1] }
+              ]);
+            },
+            borderRadius: [4, 4, 0, 0] // 柱状图顶部圆角
+          }
+        }
+      ]
+    };
+
+    // 设置图表选项
+    myChart.setOption(option);
+
+    // 监听窗口大小变化，自动 resize 图表
+    window.addEventListener('resize', () => {
+      myChart && myChart.resize();
+    });
+  });
+}
+
+// 新增：更新图表数据
+function updateChart() {
+  if (!myChart) return;
+  myChart.setOption({
+    xAxis: {
+      data: sentimentData.value.xAxis
+    },
+    series: [
+      {
+        data: sentimentData.value.series
+      }
+    ]
+  });
+}
+
+// 新增：切换看板显示/隐藏
+function toggleBoard() {
+  boardVisible.value = !boardVisible.value;
+  // 显示看板时初始化图表
+  if (boardVisible.value) {
+    initChart();
+  } else {
+    // 隐藏看板时销毁图表实例（避免内存泄漏）
+    myChart && myChart.dispose();
+    myChart = null;
+  }
+}
+
 onMounted(() => {
   window._AMapSecurityConfig = {
     securityJsCode: "ebf56b1ca59032ded98d268acb41a70c",
@@ -241,6 +410,20 @@ onUnmounted(() => {
     <button @click="toggleHeatmap" class="heatmap-toggle-btn" :disabled="!heatmapInstance">
       {{ heatmapVisible ? '关闭热力图' : '显示热力图' }}
     </button>
+    <button @click="toggleBoard" class="board-toggle-btn">
+      显示数据看板
+    </button>
+    <!-- 数据看板弹窗 -->
+    <div class="board-modal" v-if="boardVisible">
+      <div class="board-content">
+        <!-- 弹窗关闭按钮 -->
+        <button @click="toggleBoard" class="board-close-btn">&times;</button>
+        <!-- 图表容器 -->
+        <div id="sentiment-chart" class="chart-container">
+        </div>
+      </div>
+      <div class="analyse-text"><span>{{ analyse }}</span></div>
+    </div>
     <div id="container"></div>
   </div>
 </template>
@@ -249,6 +432,117 @@ onUnmounted(() => {
 #container {
   width: 100%;
   height: 100vh;
+}
+.analyse-text {
+  width: 800px;
+  /* 字体保持圆润可爱 */
+  font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: #ff87b0;
+  
+  /* 细腻阴影增加立体感 */
+  text-shadow: 0 1px 2px rgba(255, 135, 176, 0.15);
+  
+  padding: 8px 15px;
+  margin: 12px 0;
+  
+  /* 纯白色背景 */
+  background: #ffffff;
+  border-radius: 22px;
+  
+  /* 淡粉色边框 */
+  border: 4px solid rgba(255, 135, 176, 0.25);
+  
+  /* 轻微阴影增加层次感 */
+  box-shadow: 0 2px 8px rgba(255, 135, 176, 0.08);
+  
+  transition: all 0.3s ease;
+  display: inline-block;
+}
+
+.analyse-text:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 94, 148, 0.15);
+  border-color: rgba(242, 72, 128, 0.35);
+}
+
+.analyse-text:empty {
+  display: none;
+}
+.board-toggle-btn {
+  position: absolute;
+  top: 24px;
+  right: 200px;
+  z-index: 10;
+  padding: 10px 24px;
+  background: linear-gradient(90deg, #ff7e5f 0%, #feb47b 100%);
+  color: #fff;
+  border: none;
+  border-radius: 24px;
+  font-size: 16px;
+  font-weight: bold;
+  box-shadow: 0 2px 12px rgba(79, 140, 255, 0.15);
+  cursor: pointer;
+  transition: background 0.3s, box-shadow 0.3s;
+}
+
+.board-toggle-btn:hover {
+  background: linear-gradient(90deg, #feb47b 0%, #ff7e5f 100%);
+  box-shadow: 0 4px 24px rgba(254, 180, 123, 0.18);
+}
+
+.board-modal {
+  position: fixed;
+  top: 0;
+  left: 150px;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+.board-content {
+  width: 80%;
+  max-width: 800px;
+  height: 60%;
+  max-height: 500px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  position: relative;
+  overflow: hidden;
+}
+
+.board-close-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  font-size: 24px;
+  color: #666;
+  cursor: pointer;
+  transition: color 0.3s;
+  z-index: 101;
+}
+
+.board-close-btn:hover {
+  color: #ff4444;
+}
+
+.chart-container {
+  width: 100%;
+  height: 100%;
+  padding: 40px 20px 20px;
+  box-sizing: border-box;
 }
 
 .heatmap-toggle-btn {

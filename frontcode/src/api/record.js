@@ -24,6 +24,25 @@ const analyzeMood = async (content) => {
     return 2 // 失败时返回中性分
   }
 }
+
+export async function analyzeTotalMood(sentimentData) {
+  try {
+    // 使用已配置的service实例发送请求
+    const response = await service.post('/mood/analyze-total', sentimentData);
+    
+    return {
+      success: true,
+      data: response.data.data
+    };
+  } catch (error) {
+    console.error('情绪分析请求失败:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || '分析请求失败，请重试'
+    };
+  }
+}
+
 //发送记录
 export const sendRcd = async (data) => {
   try {
@@ -115,5 +134,6 @@ export const deleteRcdById = async (id) => {
     // getRcds,
     // addRcd,
     getRcdByUserId,
-    getAllRcd
+    getAllRcd,
+    analyzeTotalMood
   }
