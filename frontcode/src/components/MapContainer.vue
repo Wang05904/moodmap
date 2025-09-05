@@ -3,7 +3,6 @@ import { ref, onMounted, onUnmounted } from "vue";
 import AMapLoader from "@amap/amap-jsapi-loader";
 import { fetchHeatmapData } from "../api/relitu";
 import { useRcdStore } from '@/stores/rcdStore'
-const rcdStore = useRcdStore()
 
 let map = null;
 const heatmapInstance = ref(null);
@@ -24,7 +23,7 @@ async function initHeatmap(AMap) {
     lat: Number(item.lat),
     count: Number(item.count)
   }));
-  console.log('热力图数据:', data); 
+  console.log('热力图数据:', data);
   heatmapInstance.value = new AMap.HeatMap(map, {
     radius: 25,
     opacity: [0, 0.8],
@@ -48,7 +47,7 @@ function toggleHeatmap() {
     return;
   }
   heatmapVisible.value = !heatmapVisible.value;
-  
+
   if (heatmapVisible.value) {
     heatmapInstance.value.show();
     hideAllMarkers(); // 打开热力图 → 隐藏所有标记
@@ -80,6 +79,23 @@ let userMarker = null;
 let otherMarkers = [];
 let fetchTimer = null;
 
+const getEmoji = (score) => {
+  switch (score) {
+    case 1:
+      return '😢'; // 非常悲伤
+    case 2:
+      return '😔'; // 悲伤
+    case 3:
+      return '😐'; // 中性
+    case 4:
+      return '😊'; // 开心
+    case 5:
+      return '😄'; // 非常开心
+    default:
+      return '🤔'; // 默认表情
+  }
+};
+
 // 上传自己位置
 function uploadLocation(lng, lat, user_id) {
   fetch('/api/location', {
@@ -96,11 +112,11 @@ function fetchAllLocations(myUserId) {
     .then(res => res.json())
     .then(locations => {
       console.log('获取到的位置数据:', locations);
-      
+
       // 清除之前的所有标记
       otherMarkers.forEach(m => map && map.remove(m));
       otherMarkers = [];
-      
+
       // 为每个心情创建标记
       locations.forEach(loc => {
         const isMe = loc.user_id == myUserId;
@@ -113,17 +129,49 @@ function fetchAllLocations(myUserId) {
             : 'assets/mark_b.png',
           opacity: 0.7
         });
+
         // 双击显示心情内容和评价
         marker.on('dblclick', () => {
+          // 定义1-5分对应的颜色数组
+          const colors = [
+            '#4A90E2',  // 1分：浅蓝色（权重最低）
+            '#7B68EE',  // 2分：靛蓝色
+            '#DDA0DD',  // 3分：浅紫色
+            '#FFB6C1',  // 4分：浅粉色
+            '#FF69B4'   // 5分：深粉色（权重最高）
+          ];
+
+          // 获取当前分数对应的颜色索引（确保在1-5范围内）
+          const score = Math.min(Math.max(loc.sentiment_score, 1), 5);
+          const colorIndex = Math.floor(score) - 1;
+          const baseColor = colors[colorIndex];
+
+          // 根据基础颜色生成不同透明度的阴影
+          const shadowColor = `${baseColor}33`; // 添加33的透明度值
+
+          // 构建样式字符串
+          const containerStyle = `
+    background-color: ${baseColor}15;  // 非常浅的背景色
+    border-radius: 12px;
+    padding: 15px;
+    box-shadow: 0 4px 12px ${shadowColor};
+    border: 1px solid ${baseColor};
+    transition: all 0.3s ease;
+  `;
           const info = `
-            <div>
-              <strong>心情内容：</strong> ${loc.content}<br/>
-              <strong>情绪分数：</strong> ${loc.sentiment_score}
-            </div>
-          `;
+    <div style="${containerStyle}">
+      <div style="color: #333; font-size: 14px; line-height: 1.5; margin-bottom: 8px;">${loc.content}</div>
+      <div style="text-align: center; font-size: 20px; color: ${baseColor};">
+        ${getEmoji(loc.sentiment_score)}
+      </div>
+      <div style="text-align: right; margin-top: 8px; font-size: 12px; color: ${baseColor}80;">
+        情感指数: ${loc.sentiment_score}
+      </div>
+    </div>
+  `;
           const infoWindow = new window.AMap.InfoWindow({
             content: info,
-            offset: new window.AMap.Pixel(0, -30)
+            offset: new window.AMap.Pixel(0, -30),
           });
           infoWindow.open(map, marker.getPosition());
         });
@@ -144,7 +192,7 @@ function fetchAllLocations(myUserId) {
 // 定时获取所有用户位置
 function startFetchingLocations() {
   const user_id = sessionStorage.getItem('userId');
-  
+
   // 等待地图完全初始化
   const checkMapReady = setInterval(() => {
     if (map) {
@@ -173,8 +221,8 @@ onMounted(() => {
         zoom: 16.5,
         center: [120.3440, 30.3146],
       });
-      await initHeatmap(AMap); 
-      startFetchingLocations(); 
+      await initHeatmap(AMap);
+      startFetchingLocations();
     })
     .catch((e) => {
       console.log(e);
@@ -190,11 +238,7 @@ onUnmounted(() => {
 <template>
   <div>
     <!-- 按钮在热力图实例初始化前禁用 -->
-    <button
-      @click="toggleHeatmap"
-      class="heatmap-toggle-btn"
-      :disabled="!heatmapInstance"
-    >
+    <button @click="toggleHeatmap" class="heatmap-toggle-btn" :disabled="!heatmapInstance">
       {{ heatmapVisible ? '关闭热力图' : '显示热力图' }}
     </button>
     <div id="container"></div>
@@ -206,6 +250,7 @@ onUnmounted(() => {
   width: 100%;
   height: 100vh;
 }
+
 .heatmap-toggle-btn {
   position: absolute;
   top: 24px;
@@ -222,10 +267,12 @@ onUnmounted(() => {
   cursor: pointer;
   transition: background 0.3s, box-shadow 0.3s;
 }
+
 .heatmap-toggle-btn:hover {
   background: linear-gradient(90deg, #38e4ae 0%, #4f8cff 100%);
   box-shadow: 0 4px 24px rgba(56, 228, 174, 0.18);
 }
+
 .heatmap-toggle-btn:disabled {
   background: #ccc;
   cursor: not-allowed;
