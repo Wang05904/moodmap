@@ -34,7 +34,7 @@ async function initHeatmap(AMap) {
       1.0: 'red'
     }
   });
-  heatmapInstance.value.setDataSet({ data, max: 10 });
+  heatmapInstance.value.setDataSet({ data, max: 5 });
   heatmapInstance.value.hide(); // 默认隐藏
   // 检查实例
   console.log('heatmapInstance:', heatmapInstance.value);
@@ -66,7 +66,6 @@ function uploadLocation(lng, lat, user_id) {
 }
 
 
-// 获取所有用户位置并渲染到地图（可选功能，保留接口）
 // 获取所有用户位置并渲染到地图
 function fetchAllLocations(myUserId) {
   fetch('/api/location')
@@ -82,6 +81,7 @@ function fetchAllLocations(myUserId) {
       locations.forEach(loc => {
         // 判断是否为当前用户
         const isMe = loc.user_id === myUserId;
+        console.log('当前用户ID:', myUserId, '记录用户ID:', loc.user_id, 'isMe:', isMe);
         const marker = new window.AMap.Marker({
           position: [parseFloat(loc.lng), parseFloat(loc.lat)],
           title: loc.content, // 标记标题为心情内容
@@ -143,7 +143,7 @@ function handleUploadLocation() {
 
 // 定时获取所有用户位置
 function startFetchingLocations() {
-  const user_id = localStorage.user_id || 'user_' + Math.random().toString(36).slice(2, 10);
+  const user_id = sessionStorage.getItem('userId');
   
   // 等待地图完全初始化
   const checkMapReady = setInterval(() => {
@@ -167,7 +167,7 @@ onMounted(() => {
   AMapLoader.load({
     key: "4011cf2cb0d9f7678cf1955058781295",
     version: "2.0",
-    plugins: ["AMap.Scale"],
+    plugins: ["AMap.Scale", "AMap.HeatMap"],
   })
     .then(async (AMap) => {
       map = new AMap.Map("container", {
