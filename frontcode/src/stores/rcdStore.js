@@ -47,7 +47,7 @@ export const useRcdStore = defineStore('rcd', {
     async removeRcdItem(id) {
       const response = await deleteRcdById(id)
       const initialLength = this.myRcd.length
-      this.myRcd = this.myRcd.filter(item => item.id !== id)
+      this.myRcd = this.myRcd.filter(item => item.mood_id !== id)
       return this.myRcd.length !== initialLength
     },
   }

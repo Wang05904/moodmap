@@ -183,7 +183,7 @@ onUnmounted(() => {
     <div id="container"></div>
   </div>
   <div id="container"></div>
-  <button @click="handleUploadLocation" style="position: absolute; top: 20px; left: 20px; z-index: 1000;">上传我的位置</button>
+  <!-- <button @click="handleUploadLocation" style="position: absolute; top: 20px; left: 20px; z-index: 1000;">上传我的位置</button> -->
 </template>
 
 <style scoped>
