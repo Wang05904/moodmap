@@ -2,6 +2,8 @@
 import { ref, onMounted, onUnmounted } from "vue";
 import AMapLoader from "@amap/amap-jsapi-loader";
 import { fetchHeatmapData } from "../api/relitu";
+import { useRcdStore } from '@/stores/rcdStore'
+const rcdStore = useRcdStore()
 
 let map = null;
 const heatmapInstance = ref(null);
@@ -80,7 +82,7 @@ function fetchAllLocations(myUserId) {
       // 为每个心情创建标记
       locations.forEach(loc => {
         // 判断是否为当前用户
-        const isMe = loc.user_id === myUserId;
+        const isMe = loc.user_id == myUserId;
         console.log('当前用户ID:', myUserId, '记录用户ID:', loc.user_id, 'isMe:', isMe);
         const marker = new window.AMap.Marker({
           position: [parseFloat(loc.lng), parseFloat(loc.lat)],
@@ -143,7 +145,9 @@ function handleUploadLocation() {
 
 // 定时获取所有用户位置
 function startFetchingLocations() {
-  const user_id = sessionStorage.getItem('userId');
+  useRcdStore.getRcd().then(() => {
+    console.log('当前用户记录:', rcdStore.allRcd);
+  }) ;
   
   // 等待地图完全初始化
   const checkMapReady = setInterval(() => {

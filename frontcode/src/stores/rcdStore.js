@@ -1,8 +1,9 @@
 import { defineStore } from 'pinia'
-import { getRcdByUserId,deleteRcdById } from '@/api/record' // 假设接口在这个路径
+import { getRcdByUserId,deleteRcdById,getAllRcd } from '@/api/record' // 假设接口在这个路径
 
 export const useRcdStore = defineStore('rcd', {
   state: () => ({
+    allRcd: [],
     myRcd: [],
     // 加载状态
     loading: false,
@@ -18,6 +19,15 @@ export const useRcdStore = defineStore('rcd', {
   },
 
   actions: {
+    //获取所有记录
+    async getRcd(){
+      try {
+        response = await getAllRcd()
+        this.allRcd = response.data
+      }catch (err) {
+        console.error('获取所有记录失败:', err)
+      }
+    },
 
     async initRcdList() {
       // 获取用户名
