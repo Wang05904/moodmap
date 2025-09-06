@@ -22,7 +22,7 @@ export const useRcdStore = defineStore('rcd', {
     //获取所有记录
     async getRcd(){
       try {
-        response = await getAllRcd()
+        const response = await getAllRcd()
         this.allRcd = response.data
       }catch (err) {
         console.error('获取所有记录失败:', err)

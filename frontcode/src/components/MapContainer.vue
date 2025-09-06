@@ -4,10 +4,15 @@ import AMapLoader from "@amap/amap-jsapi-loader";
 import { fetchHeatmapData } from "../api/relitu";
 import * as echarts from 'echarts'
 import { analyzeTotalMood } from "@/api/record";
+import { useRcdStore } from '@/stores/rcdStore'
+
 
 let map = null;
+const rcdStore = useRcdStore()
 const heatmapInstance = ref(null);
 const heatmapVisible = ref(false);
+// 新增：热力图模式状态（0:关闭, 1:热力图一, 2:热力图二）
+const heatmapMode = ref(0);
 
 // 新增：看板相关状态
 const boardVisible = ref(false); // 看板弹窗显示状态
@@ -60,22 +65,153 @@ const handleAnalyze = async () => {
     console.error('分析失败:', result.message);
   }
 };
+
+// 添加初始化密度热力图的函数
+async function initDensityHeatmap(AMap) {
+  console.log('initDensityHeatmap 调用');
+  
+  // 初始化热力图实例，但使用不同的配置
+  heatmapInstance.value = new AMap.HeatMap(map, {
+    radius: 30, // 增加半径以更好地显示密度
+    opacity: [0, 0.8],
+    gradient: {
+      0.5: 'blue',      // 低密度 - 蓝色
+      0.65: 'cyan',     // 较低密度 - 青色
+      0.7: 'green',     // 中等密度 - 绿色
+      0.8: 'yellow',    // 较高密度 - 黄色
+      0.9: 'orange',    // 高密度 - 橙色
+      1.0: 'red'        // 极高密度 - 红色
+    }
+  });
+  
+  // 从rcdStore获取数据并更新热力图
+  await updateDensityHeatmap();
+  
+  heatmapInstance.value.hide(); // 默认隐藏
+  console.log('densityHeatmapInstance:', heatmapInstance.value);
+}
+
+// 添加更新密度热力图数据的函数
+async function updateDensityHeatmap() {
+  if (!heatmapInstance.value) {
+    console.warn('热力图实例未初始化');
+    return;
+  }
+  
+  try {
+    // 获取所有记录
+    await rcdStore.getRcd();
+    const allRecords = rcdStore.allRcd;
+    console.log('从rcdStore获取到的所有记录:', allRecords);
+    
+    if (!Array.isArray(allRecords) || allRecords.length === 0) {
+      console.log('没有找到记录数据');
+      return;
+    }
+    
+    // 过滤出有位置信息的记录
+    const locationData = allRecords.filter(record => 
+      record.longitude && record.latitude
+    ).map(record => ({
+      lng: Number(record.longitude),
+      lat: Number(record.latitude),
+      // 使用情绪分数作为权重
+      weight: record.sentiment_score || 1
+    }));
+    
+    if (locationData.length === 0) {
+      console.log('没有有效的位置数据');
+      return;
+    }
+    
+    console.log('处理后的位置数据:', locationData);
+    
+    // 计算位置密度
+    const densityData = calculateLocationDensity(locationData);
+    console.log('密度数据:', densityData);
+    
+    // 更新热力图数据
+    heatmapInstance.value.setDataSet({
+      data: densityData,
+      max: Math.max(...densityData.map(item => item.count)) // 使用最大密度值作为max
+    });
+    
+    console.log('密度热力图数据已更新');
+  } catch (error) {
+    console.error('更新密度热力图数据失败:', error);
+  }
+}
+
+// 添加计算位置密度的函数
+function calculateLocationDensity(locationData) {
+  // 创建网格来计算密度
+  const gridSize = 0.0005; // 网格大小，约50米
+  const grid = new Map();
+  
+  // 将每个位置放入对应的网格中
+  locationData.forEach(point => {
+    const gridKey = `${Math.floor(point.lng / gridSize)},${Math.floor(point.lat / gridSize)}`;
+    
+    if (!grid.has(gridKey)) {
+      grid.set(gridKey, {
+        lng: point.lng,
+        lat: point.lat,
+        count: 0,
+        totalWeight: 0
+      });
+    }
+    
+    const gridCell = grid.get(gridKey);
+    gridCell.count += 1;
+    gridCell.totalWeight += point.weight;
+    
+    // 更新网格中心点
+    gridCell.lng = (gridCell.lng * (gridCell.count - 1) + point.lng) / gridCell.count;
+    gridCell.lat = (gridCell.lat * (gridCell.count - 1) + point.lat) / gridCell.count;
+  });
+  
+  // 转换为热力图需要的格式，并考虑权重
+  return Array.from(grid.values()).map(cell => ({
+    lng: cell.lng,
+    lat: cell.lat,
+    count: cell.count * (cell.totalWeight / cell.count) // 加权密度
+  }));
+}
+
 // ========== 关键改动1：修改 toggleHeatmap，添加标记显示/隐藏控制 ==========
-function toggleHeatmap() {
+async function toggleHeatmap() {
   if (!heatmapInstance.value || typeof heatmapInstance.value.hide !== 'function') {
     console.warn('热力图尚未初始化或方法不存在');
     return;
   }
-  heatmapVisible.value = !heatmapVisible.value;
-
-  if (heatmapVisible.value) {
-    heatmapInstance.value.show();
-    hideAllMarkers(); // 打开热力图 → 隐藏所有标记
-  } else {
+  
+  // 循环切换模式：0 → 1 → 2 → 0
+  heatmapMode.value = (heatmapMode.value + 1) % 3;
+  
+  if (heatmapMode.value === 0) {
+    // 关闭热力图
+    heatmapVisible.value = false;
     heatmapInstance.value.hide();
     showAllMarkers(); // 关闭热力图 → 显示所有标记
+    console.log('热力图关闭');
+  }  else if (heatmapMode.value === 1) {
+    // 显示热力图一(原有)
+    await initHeatmap(window.AMap);
+    heatmapInstance.value.show();
+    heatmapVisible.value = true;
+    hideAllMarkers(); 
+    console.log('显示热力图一(原有)');
+  } else if (heatmapMode.value === 2) {
+    // 显示热力图二(密度)
+    heatmapInstance.value.hide();
+    await initDensityHeatmap(window.AMap);
+    heatmapInstance.value.show();
+    heatmapVisible.value = true;
+    hideAllMarkers(); 
+    console.log('显示热力图二(密度)');
   }
 }
+
 
 // ========== 关键改动2：新增标记批量显示/隐藏函数 ==========
 // 隐藏所有位置标记
@@ -163,7 +299,7 @@ function fetchAllLocations(myUserId) {
           position: [parseFloat(loc.lng), parseFloat(loc.lat)],
           title: loc.content,
           icon: isMe
-            ? 'https://webapi.amap.com/theme/v1.3/markers/n/mark_r.png'
+            ? 'assets/mark_r.png'
             : 'assets/mark_b.png',
           opacity: 0.7
         });
@@ -239,6 +375,17 @@ function startFetchingLocations() {
       // 每10秒获取一次
       fetchTimer = setInterval(() => {
         fetchAllLocations(user_id);
+
+        // 如果当前是密度热力图模式，更新数据
+        if (heatmapMode.value === 2) {
+          (async () => {
+            try {
+              await updateDensityHeatmap();
+            } catch (error) {
+              console.error('定时更新密度热力图失败:', error);
+            }
+          })();
+        }
       }, 10000);
     }
   }, 100);
@@ -408,7 +555,7 @@ onUnmounted(() => {
   <div>
     <!-- 按钮在热力图实例初始化前禁用 -->
     <button @click="toggleHeatmap" class="heatmap-toggle-btn" :disabled="!heatmapInstance">
-      {{ heatmapVisible ? '关闭热力图' : '显示热力图' }}
+      {{ heatmapMode === 0 ? '显示情绪热力图' : heatmapMode === 1 ? '显示密度热力图' : '关闭热力图' }}
     </button>
     <button @click="toggleBoard" class="board-toggle-btn">
       显示数据看板
