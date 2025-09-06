@@ -217,6 +217,26 @@ function showGridWithColor(densityData) {
   const maxSentiment = Math.max(...sentiments);
   const sentimentRange = maxSentiment - minSentiment || 1; // 避免除零
   
+  function getEmoji(score) {
+  // 将小数分数转换为整数分数（1-5分）
+  const integerScore = Math.round(score);
+  
+  switch (integerScore) {
+    case 1:
+      return '😢'; // 非常悲伤
+    case 2:
+      return '😔'; // 悲伤
+    case 3:
+      return '😐'; // 中性
+    case 4:
+      return '😊'; // 开心
+    case 5:
+      return '😄'; // 非常开心
+    default:
+      return '🤔'; // 默认表情
+  }
+}
+
   // 创建网格多边形
   densityData.forEach(gridCell => {
     // 根据情绪得分计算颜色
@@ -253,8 +273,12 @@ function showGridWithColor(densityData) {
     
     // 添加鼠标悬停信息
     polygon.on('mouseover', () => {
+      // 根据情绪值获取对应的表情
+      const emoji = getEmoji(gridCell.sentiment);
+
       const infoWindow = new window.AMap.InfoWindow({
         content: `<div style="padding: 10px;">
+          <div style="font-size: 32px; margin-bottom: 8px;">${emoji}</div>
           <div>密度: ${gridCell.count.toFixed(2)}</div>
           <div>情绪值: ${gridCell.sentiment.toFixed(2)}</div>
           <div>心情数量: ${gridCell.count.toFixed(0)}</div>
