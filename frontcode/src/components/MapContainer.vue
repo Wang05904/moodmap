@@ -13,6 +13,10 @@ const heatmapInstance = ref(null);
 const heatmapVisible = ref(false);
 // 新增：热力图模式状态（0:关闭, 1:热力图一, 2:热力图二）
 const heatmapMode = ref(0);
+const gridLayer = ref(null); // 网格图层引用
+const gridPolygons = ref([]); // 存储所有网格多边形对象
+const showGrid = ref(true); // 添加showGrid变量，默认为true表示显示网格
+
 
 // 新增：看板相关状态
 const boardVisible = ref(false); // 看板弹窗显示状态
@@ -70,17 +74,17 @@ const handleAnalyze = async () => {
 async function initDensityHeatmap(AMap) {
   console.log('initDensityHeatmap 调用');
   
-  // 初始化热力图实例，但使用不同的配置
+  // 初始化热力图实例，使用改进的配置
   heatmapInstance.value = new AMap.HeatMap(map, {
     radius: 30, // 增加半径以更好地显示密度
     opacity: [0, 0.8],
     gradient: {
-      0.5: 'blue',      // 低密度 - 蓝色
-      0.65: 'cyan',     // 较低密度 - 青色
-      0.7: 'green',     // 中等密度 - 绿色
-      0.8: 'yellow',    // 较高密度 - 黄色
+      0.2: 'blue',      // 低密度/低情绪 - 蓝色
+      0.4: 'cyan',      // 较低密度 - 青色
+      0.5: 'green',     // 中等密度/中性情绪 - 绿色
+      0.7: 'yellow',    // 较高密度 - 黄色
       0.9: 'orange',    // 高密度 - 橙色
-      1.0: 'red'        // 极高密度 - 红色
+      1.0: 'red'        // 极高密度/高情绪 - 红色
     }
   });
   
@@ -115,8 +119,8 @@ async function updateDensityHeatmap() {
     ).map(record => ({
       lng: Number(record.longitude),
       lat: Number(record.latitude),
-      // 使用情绪分数作为权重
-      weight: record.sentiment_score || 1
+      weight: 1, // 使用固定权重
+      sentiment_score: record.sentiment_score || 3 // 默认中性情绪
     }));
     
     if (locationData.length === 0) {
@@ -126,17 +130,37 @@ async function updateDensityHeatmap() {
     
     console.log('处理后的位置数据:', locationData);
     
-    // 计算位置密度
+    // 计算位置密度和情绪得分
     const densityData = calculateLocationDensity(locationData);
     console.log('密度数据:', densityData);
     
+    // 根据情绪得分调整热力图数据点
+    const heatmapData = densityData.map(item => {
+      // 计算综合得分：密度 * 情绪得分影响因子
+      // 情绪得分越高，颜色越偏向红色；情绪得分越低，颜色越偏向蓝色
+      const sentimentFactor = item.sentiment >= 3 ? 
+        1 + (item.sentiment - 3) * 0.3 : // 积极情绪增强
+        1 - (3 - item.sentiment) * 0.3; // 消极情绪减弱
+      
+      return {
+        lng: item.lng,
+        lat: item.lat,
+        count: item.count * sentimentFactor
+      };
+    });
+    
     // 更新热力图数据
     heatmapInstance.value.setDataSet({
-      data: densityData,
-      max: Math.max(...densityData.map(item => item.count)) // 使用最大密度值作为max
+      data: heatmapData,
+      max: Math.max(...heatmapData.map(item => item.count))
     });
     
     console.log('密度热力图数据已更新');
+    // 如果需要显示网格，更新网格显示
+    if (showGrid && window.AMap) {
+      await showGridWithColor(densityData);
+    }
+
   } catch (error) {
     console.error('更新密度热力图数据失败:', error);
   }
@@ -144,7 +168,6 @@ async function updateDensityHeatmap() {
 
 // 添加计算位置密度的函数
 function calculateLocationDensity(locationData) {
-  // 创建网格来计算密度
   const gridSize = 0.0005; // 网格大小，约50米
   const grid = new Map();
   
@@ -157,25 +180,154 @@ function calculateLocationDensity(locationData) {
         lng: point.lng,
         lat: point.lat,
         count: 0,
-        totalWeight: 0
+        totalWeight: 0,
+        totalSentiment: 0 // 新增：总情绪得分
       });
     }
     
     const gridCell = grid.get(gridKey);
     gridCell.count += 1;
     gridCell.totalWeight += point.weight;
+    gridCell.totalSentiment += point.sentiment_score || 1; // 累加情绪得分
     
     // 更新网格中心点
     gridCell.lng = (gridCell.lng * (gridCell.count - 1) + point.lng) / gridCell.count;
     gridCell.lat = (gridCell.lat * (gridCell.count - 1) + point.lat) / gridCell.count;
   });
   
-  // 转换为热力图需要的格式，并考虑权重
+  // 转换为热力图需要的格式，并考虑权重和情绪
   return Array.from(grid.values()).map(cell => ({
     lng: cell.lng,
     lat: cell.lat,
-    count: cell.count * (cell.totalWeight / cell.count) // 加权密度
+    count: cell.count * (cell.totalWeight / cell.count), // 加权密度
+    sentiment: cell.totalSentiment / cell.count // 平均情绪得分
   }));
+}
+
+// 新增：显示带颜色的网格函数
+function showGridWithColor(densityData) {
+  const gridSize = 0.0005; // 网格大小，与calculateLocationDensity函数保持一致
+  
+  // 清除之前的网格
+  clearGrid();
+  
+  // 计算所有网格的最大和最小情绪得分，用于颜色映射
+  const sentiments = densityData.map(item => item.sentiment);
+  const minSentiment = Math.min(...sentiments);
+  const maxSentiment = Math.max(...sentiments);
+  const sentimentRange = maxSentiment - minSentiment || 1; // 避免除零
+  
+  // 创建网格多边形
+  densityData.forEach(gridCell => {
+    // 根据情绪得分计算颜色
+    // 将情绪得分映射到0-1范围
+    const normalizedSentiment = (gridCell.sentiment - minSentiment) / sentimentRange;
+    // 生成颜色：蓝色(低情绪)到红色(高情绪)
+    const color = getColorFromSentiment(normalizedSentiment);
+    
+    // 计算网格的四个角坐标
+    const lngBase = Math.floor(gridCell.lng / gridSize) * gridSize;
+    const latBase = Math.floor(gridCell.lat / gridSize) * gridSize;
+    
+    const path = [
+      [lngBase, latBase],
+      [lngBase + gridSize, latBase],
+      [lngBase + gridSize, latBase + gridSize],
+      [lngBase, latBase + gridSize],
+      [lngBase, latBase] // 闭合
+    ];
+    
+    // 创建多边形
+    const polygon = new window.AMap.Polygon({
+      path: path,
+      strokeColor: '#999', // 网格线颜色
+      strokeWeight: 1,    // 网格线宽度
+      strokeOpacity: 0.5, // 网格线透明度
+      fillColor: color,   // 填充颜色
+      fillOpacity: 0.6    // 填充透明度
+    });
+    
+    // 添加到地图
+    polygon.setMap(map);
+    gridPolygons.value.push(polygon);
+    
+    // 添加鼠标悬停信息
+    polygon.on('mouseover', () => {
+      const infoWindow = new window.AMap.InfoWindow({
+        content: `<div style="padding: 10px;">
+          <div>密度: ${gridCell.count.toFixed(2)}</div>
+          <div>情绪值: ${gridCell.sentiment.toFixed(2)}</div>
+          <div>心情数量: ${gridCell.count.toFixed(0)}</div>
+        </div>`,
+        position: [(lngBase + lngBase + gridSize) / 2, (latBase + latBase + gridSize) / 2]
+      });
+      infoWindow.open(map);
+    });
+  });
+  
+  console.log('网格显示已更新，共显示', gridPolygons.value.length, '个网格');
+}
+
+// 新增：根据情绪得分获取颜色的函数
+function getColorFromSentiment(normalizedSentiment) {
+  // normalizedSentiment 范围是0-1
+  // 根据用户提供的配色方案映射颜色
+  const colorStops = [
+    { stop: 0.0, color: '#4A90E2' }, // 权重最低：浅蓝色（密度低+心情差）
+    { stop: 0.2, color: '#7B68EE' }, // 权重较低：靛蓝色
+    { stop: 0.4, color: '#9370DB' }, // 权重中等： mediumpurple
+    { stop: 0.6, color: '#DDA0DD' }, // 权重较高：浅紫色
+    { stop: 0.8, color: '#FFB6C1' }, // 权重很高：浅粉色
+    { stop: 1.0, color: '#FF69B4' }  // 权重最高：粉色
+  ];
+
+  // 找到归一化情绪值对应的颜色区间
+  for (let i = 0; i < colorStops.length - 1; i++) {
+    if (normalizedSentiment >= colorStops[i].stop && normalizedSentiment <= colorStops[i + 1].stop) {
+      // 在两个色阶之间进行线性插值
+      const t = (normalizedSentiment - colorStops[i].stop) / 
+                (colorStops[i + 1].stop - colorStops[i].stop);
+      return interpolateColor(colorStops[i].color, colorStops[i + 1].color, t);
+    }
+  }
+
+  // 如果超出范围，返回最接近的颜色
+  return normalizedSentiment <= 0 ? colorStops[0].color : colorStops[colorStops.length - 1].color;
+}
+
+// 辅助函数：在两个颜色之间进行线性插值
+function interpolateColor(color1, color2, t) {
+  // 从十六进制颜色解析RGB值
+  const parseColor = (hex) => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+      r: parseInt(result[1], 16),
+      g: parseInt(result[2], 16),
+      b: parseInt(result[3], 16)
+    } : null;
+  };
+
+  const rgb1 = parseColor(color1);
+  const rgb2 = parseColor(color2);
+
+  if (!rgb1 || !rgb2) return color1; // 如果解析失败，返回原始颜色
+
+  // 计算插值后的RGB值
+  const r = Math.round(rgb1.r + (rgb2.r - rgb1.r) * t);
+  const g = Math.round(rgb1.g + (rgb2.g - rgb1.g) * t);
+  const b = Math.round(rgb1.b + (rgb2.b - rgb1.b) * t);
+
+  // 转回十六进制格式
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+// 新增：清除网格的函数
+function clearGrid() {
+  // 移除所有网格多边形
+  gridPolygons.value.forEach(polygon => {
+    map && polygon.setMap(null);
+  });
+  gridPolygons.value = [];
 }
 
 // ========== 关键改动1：修改 toggleHeatmap，添加标记显示/隐藏控制 ==========
@@ -193,6 +345,7 @@ async function toggleHeatmap() {
     heatmapVisible.value = false;
     heatmapInstance.value.hide();
     showAllMarkers(); // 关闭热力图 → 显示所有标记
+    clearGrid(); // 清除网格显示
     console.log('热力图关闭');
   }  else if (heatmapMode.value === 1) {
     // 显示热力图一(原有)
@@ -200,6 +353,7 @@ async function toggleHeatmap() {
     heatmapInstance.value.show();
     heatmapVisible.value = true;
     hideAllMarkers(); 
+    clearGrid(); // 清除网格显示
     console.log('显示热力图一(原有)');
   } else if (heatmapMode.value === 2) {
     // 显示热力图二(密度)
@@ -548,6 +702,7 @@ onMounted(() => {
 onUnmounted(() => {
   map?.destroy();
   fetchTimer && clearInterval(fetchTimer); // 新增：清除定时器，避免内存泄漏
+  clearGrid(); // 清除网格显示
 });
 </script>
 
